@@ -106,7 +106,7 @@ def learn(env,
           prioritized_replay_eps=1e-6,
           param_noise=False,
           callback=None,
-          render=True):
+          render=False):
     """Train a deepq model.
 
     Parameters
@@ -298,7 +298,8 @@ def learn(env,
                     if print_freq is not None:
                         logger.log("Saving model due to mean reward increase: {} -> {}".format(
                                    saved_mean_reward, mean_100ep_reward))
-                    save_state(model_file)
+                    #save_state(model_file)
+                    act.save()
                     model_saved = True
                     saved_mean_reward = mean_100ep_reward
         if model_saved:
