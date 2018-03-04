@@ -2,6 +2,7 @@ import os
 import os.path as osp
 import gym
 import time
+import datetime
 import joblib
 import logging
 import numpy as np
@@ -32,6 +33,9 @@ class Model(object):
         R = tf.placeholder(tf.float32, [nbatch])
         LR = tf.placeholder(tf.float32, [])
 
+        # Defines step_model function and train_model functions
+        # Pass each model a copy of 'sess'
+        print("Constructing model... STEP_MODEL & TRAIN_MODEL: constructing step_model policy | " + str(policy))
         step_model = policy(sess, ob_space, ac_space, nenvs, 1, reuse=False)
         train_model = policy(sess, ob_space, ac_space, nenvs*nsteps, nsteps, reuse=True)
 
@@ -55,10 +59,16 @@ class Model(object):
             advs = rewards - values
             for step in range(len(obs)):
                 cur_lr = lr.value()
+            # td_map hooks up all inputs for train model?
             td_map = {train_model.X:obs, A:actions, ADV:advs, R:rewards, LR:cur_lr}
+
             if states is not None:
                 td_map[train_model.S] = states
                 td_map[train_model.M] = masks
+
+            # Policy Loss, Value Loss, and Policy Entropy calculations
+
+            # Propagates losses backwards through the neural network?
             policy_loss, value_loss, policy_entropy, _ = sess.run(
                 [pg_loss, vf_loss, entropy, _train],
                 td_map
@@ -103,16 +113,28 @@ class Runner(object):
         self.states = model.initial_state
         self.dones = [False for _ in range(nenv)]
 
+    # run() steps through 'nsteps' of each 'nenvs' environment, adds actions values
     def run(self):
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
         mb_states = self.states
+
+        # For each step n, the model steps through each environmentctions without 'learning' anything, adds rewards
         for n in range(self.nsteps):
             actions, values, states, _ = self.model.step(self.obs, self.states, self.dones)
+
+            #print("#######************###### ACTIONS PRINT: " + str(n))
+            #print(str(actions))
+            #print(str(values))
             mb_obs.append(np.copy(self.obs))
             mb_actions.append(actions)
             mb_values.append(values)
             mb_dones.append(self.dones)
             obs, rewards, dones, _ = self.env.step(actions)
+            print("RUNNER: len(obs): " + str(len(obs)))
+
+            print("RUNNER: len(rewards): " + str(len(rewards)))
+
+
             self.states = states
             self.dones = dones
             for n, done in enumerate(dones):
@@ -131,6 +153,8 @@ class Runner(object):
         mb_dones = mb_dones[:, 1:]
         last_values = self.model.value(self.obs, self.states, self.dones).tolist()
         #discount/bootstrap off value fn
+
+        # For each (reward, dones, value) tuple, add rewards to list, add dones to list,
         for n, (rewards, dones, value) in enumerate(zip(mb_rewards, mb_dones, last_values)):
             rewards = rewards.tolist()
             dones = dones.tolist()
@@ -139,6 +163,8 @@ class Runner(object):
             else:
                 rewards = discount_with_dones(rewards, dones, self.gamma)
             mb_rewards[n] = rewards
+
+        # Todo: What are these values, print out, the original data is .flattened() to produce return vals
         mb_rewards = mb_rewards.flatten()
         mb_actions = mb_actions.flatten()
         mb_values = mb_values.flatten()
@@ -150,26 +176,68 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
     set_global_seeds(seed)
 
     nenvs = env.num_envs
+    print('rockin ' + str(nenvs))
     ob_space = env.observation_space
     ac_space = env.action_space
+    print('observation space: ' + str(ob_space))
+    print('action space: ' + str(ac_space))
+
+    # Initializes model with all arguments obtained from run_atari
     model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
         max_grad_norm=max_grad_norm, lr=lr, alpha=alpha, epsilon=epsilon, total_timesteps=total_timesteps, lrschedule=lrschedule)
+
+    # Intializes a runner using the above model, an environment, and nsteps to run
     runner = Runner(env, model, nsteps=nsteps, gamma=gamma)
+
+
+    file = open("testOutput.txt", "w")
+    file.write(str(datetime.datetime.now()))
 
     nbatch = nenvs*nsteps
     tstart = time.time()
+    i = 0
+
+    # Todo: Figure out how frequently this is: loop 1 to 137,501
     for update in range(1, total_timesteps//nbatch+1):
+        print("__________ Control loop goes from 1 -> " + str(total_timesteps//nbatch+1))
+
+        print("_____________________ Super main loop, hits run, hits train: " + str(i))
+        i += 1
+        # runner.run(), steps model, returns observations, states, rewards, masks, actions, values for all agents?
         obs, states, rewards, masks, actions, values = runner.run()
+        # 80 observations, 16 envs * 5 steps
+        print("LEARNING FROM: len(obs): " + str(len(obs)))
+        # Printing states: TypeError: object of type 'NoneType' has no len()
+        #print("len(states): " + str(len(states)))
+        print("LEARNING FROM: len(rewards): " + str(len(rewards)))
+
+        # model.train(), trains model, takes all that above data, processes it through train_model
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         nseconds = time.time()-tstart
         fps = int((update*nbatch)/nseconds)
         if update % log_interval == 0 or update == 1:
+            avgReward = 0
+            rewardCount = 0
+            for reward in rewards:
+                # Prints 80 reward values? (5 training steps * 16 nenvs) = 80 reward values
+                print(reward)
+                avgReward += reward
+                rewardCount += 1
+
+            avgReward = avgReward / rewardCount
             ev = explained_variance(values, rewards)
+
             logger.record_tabular("nupdates", update)
             logger.record_tabular("total_timesteps", update*nbatch)
             logger.record_tabular("fps", fps)
             logger.record_tabular("policy_entropy", float(policy_entropy))
             logger.record_tabular("value_loss", float(value_loss))
+            logger.record_tabular("avgReward", float(avgReward))
             logger.record_tabular("explained_variance", float(ev))
+
+
             logger.dump_tabular()
+
+
+    file.close()
     env.close()

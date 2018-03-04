@@ -101,23 +101,51 @@ class CnnPolicy(object):
 
     def __init__(self, sess, ob_space, ac_space, nbatch, nsteps, reuse=False): #pylint: disable=W0613
         nh, nw, nc = ob_space.shape
+        # TODO: What is nbatch, nh, nw, nc
+
         ob_shape = (nbatch, nh, nw, nc)
+        # prints out: $$$$$$$$$$$$$$$$$$$$$ (16, 84, 84, 4)
+        # print("$$$$$$$$$$$$$$$$$$$$$ " + str(ob_shape))
         nact = ac_space.n
+        # prints out: !!!!!!!!!!!!!!!!!!!!! 4
+        print("!!!!!!!!!!!!!!!!!!!!! " + str(nact))
+
+        # X is the input for the conv network
         X = tf.placeholder(tf.uint8, ob_shape) #obs
         with tf.variable_scope("model", reuse=reuse):
+            # h is the convolutional neural network layer taking in the input
             h = nature_cnn(X)
+
+            # pi helps establish policy network layer, output size of 'nact' : numactions
             pi = fc(h, 'pi', nact, init_scale=0.01)
+
+            # vf helps establish the value network layer over network h
             vf = fc(h, 'v', 1)[:,0]
 
+        #pdtype: policy distribution type
         self.pdtype = make_pdtype(ac_space)
         self.pd = self.pdtype.pdfromflat(pi)
 
+        # prints out: <baselines.common.distributions.CategoricalPd object at 0x1c1f329da0>
+        print("Initializing CnnPolicy... " + str(self.pd))
         a0 = self.pd.sample()
+        # prints out: Tensor("ArgMax:0", shape=(16,), dtype=int64)
+        print("************ " + str(a0))
+
+
         neglogp0 = self.pd.neglogp(a0)
+        #print("@@@@@@@@@@@@ " + str(neglogp0))
         self.initial_state = None
 
         def step(ob, *_args, **_kwargs):
+            # Runs the network with functions: a0, vf, neglop0, and state 'ob'
+            # All these variables are tensor objects
             a, v, neglogp = sess.run([a0, vf, neglogp0], {X:ob})
+            print("STEP: a: " + str(a))
+            print("STEP: v: " + str(v))
+            print("STEP: ngelopp: " + str(neglogp))
+            print()
+            print()
             return a, v, self.initial_state, neglogp
 
         def value(ob, *_args, **_kwargs):

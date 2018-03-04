@@ -149,7 +149,13 @@ class CategoricalPd(Pd):
         return tf.reduce_sum(p0 * (tf.log(z0) - a0), axis=-1)
     def sample(self):
         u = tf.random_uniform(tf.shape(self.logits))
-        return tf.argmax(self.logits - tf.log(-tf.log(u)), axis=-1)
+        print("Sample....... u: " + str(u))
+        print("Sample ...... logits shape: " + str(self.logits))
+        print("Sample ...... tf.log(-tf.log(u): " + str(tf.log(-tf.log(u))))
+
+        rtn = tf.argmax(self.logits - tf.log(-tf.log(u)), axis=-1)
+        print("Sample1...... rtn: " + str(rtn))
+        return rtn
     @classmethod
     def fromflat(cls, flat):
         return cls(flat)

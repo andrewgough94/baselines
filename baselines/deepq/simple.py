@@ -42,8 +42,16 @@ class ActWrapper(object):
 
     def save(self, path=None):
         """Save model to a pickle located at `path`"""
+
+        cwd = os.getcwd()
+
         if path is None:
-            path = os.path.join(logger.get_dir(), "model.pkl")
+            path = logger.get_dir() + "/model.pkl"
+
+
+        print("Logger dir: " + logger.get_dir())
+
+        print("MODEL SAVED TO : " + str(path))
 
         with tempfile.TemporaryDirectory() as td:
             save_state(os.path.join(td, "model"))
@@ -97,7 +105,8 @@ def learn(env,
           prioritized_replay_beta_iters=None,
           prioritized_replay_eps=1e-6,
           param_noise=False,
-          callback=None):
+          callback=None,
+          render=True):
     """Train a deepq model.
 
     Parameters
@@ -218,7 +227,10 @@ def learn(env,
     reset = True
     with tempfile.TemporaryDirectory() as td:
         model_saved = False
-        model_file = os.path.join(td, "model")
+        #TODO Change the model_file location, then make a resume' flag and load from this model file
+        #model_file = os.path.join(td, "model")
+        model_file = 'save.p'
+        print("$$$$$$$$$$$$$ $$$$$$$$$$$$$$ " + str(model_file))
         for t in range(max_timesteps):
             if callback is not None:
                 if callback(locals(), globals()):
@@ -241,6 +253,8 @@ def learn(env,
             action = act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
             env_action = action
             reset = False
+            if render == True:
+               env.render()
             new_obs, rew, done, _ = env.step(env_action)
             # Store transition in the replay buffer.
             replay_buffer.add(obs, action, rew, new_obs, float(done))
