@@ -14,6 +14,8 @@ def train(env_id, num_timesteps, seed, policy, lrschedule, num_env):
         policy_fn = LstmPolicy
     elif policy == 'lnlstm':
         policy_fn = LnLstmPolicy
+    # VecFrameStack
+    # make_atari_env() : launches 'num_env' subprocess each with 'env_id' and for i in num_env: seed+=seed+i
     env = VecFrameStack(make_atari_env(env_id, num_env, seed), 4)
     print("_____________________________________________ policy: " + str(policy))
     learn(policy_fn, env, seed, total_timesteps=int(num_timesteps * 1.1), lrschedule=lrschedule)
