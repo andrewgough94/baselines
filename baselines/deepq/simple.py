@@ -231,7 +231,9 @@ def learn(env,
         #model_file = os.path.join(td, "model")
         model_file = 'save.p'
         print("$$$$$$$$$$$$$ $$$$$$$$$$$$$$ " + str(model_file))
+        print("$$$$$$$$$$$$ max timesteps: " + str(max_timesteps))
         for t in range(max_timesteps):
+
             if callback is not None:
                 if callback(locals(), globals()):
                     break
@@ -256,6 +258,7 @@ def learn(env,
             if render == True:
                env.render()
             new_obs, rew, done, _ = env.step(env_action)
+
             # Store transition in the replay buffer.
             replay_buffer.add(obs, action, rew, new_obs, float(done))
             obs = new_obs

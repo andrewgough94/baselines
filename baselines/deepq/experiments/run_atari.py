@@ -10,8 +10,15 @@ def main():
     parser.add_argument('--env', help='environment ID', default='BreakoutNoFrameskip-v4')
     parser.add_argument('--seed', help='RNG seed', type=int, default=0)
     parser.add_argument('--prioritized', type=int, default=1)
+    parser.add_argument('--bufferSize', type=int, default=10000)
     parser.add_argument('--dueling', type=int, default=1)
     parser.add_argument('--num-timesteps', type=int, default=int(10e6))
+    parser.add_argument('--learningRate', type=float, default=5e-4)
+    parser.add_argument('--epsStart', type=float, default=1.0)
+    parser.add_argument('--epsEnd', type=float, default=.05)
+    parser.add_argument('--learningStart', type=int, default=int(1000))
+    parser.add_argument('--targetNetworkUpdate', type=int, default=int(500))
+
     args = parser.parse_args()
     logger.configure()
     set_global_seeds(args.seed)
@@ -26,14 +33,14 @@ def main():
     act = deepq.learn(
         env,
         q_func=model,
-        lr=1e-4,
+        lr=args.learningRate,
         max_timesteps=args.num_timesteps,
-        buffer_size=10000,
-        exploration_fraction=0.1,
-        exploration_final_eps=0.01,
+        buffer_size=args.bufferSize,
+        exploration_fraction=args.epsStart,
+        exploration_final_eps=args.epsEnd,
         train_freq=4,
-        learning_starts=10000,
-        target_network_update_freq=1000,
+        learning_starts= args.learningStart,
+        target_network_update_freq=args.targetNetworkUpdate,
         gamma=0.99,
         prioritized_replay=bool(args.prioritized)
     )
