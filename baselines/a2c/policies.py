@@ -116,9 +116,11 @@ class CnnPolicy(object):
             # h is the convolutional neural network layer taking in the input
             h = nature_cnn(X)
 
-            # pi helps establish policy network layer, output size of 'nact' : numactions
+            # pi takes input from 'h'
+            # pi helps establish policy network layer, fully connected to 'h', output size of 'nact' : numactions
             pi = fc(h, 'pi', nact, init_scale=0.01)
 
+            # vf takes input from 'h'
             # vf helps establish the value network layer over network h
             vf = fc(h, 'v', 1)[:,0]
 
@@ -134,8 +136,22 @@ class CnnPolicy(object):
 
 
         neglogp0 = self.pd.neglogp(a0)
-        #print("@@@@@@@@@@@@ " + str(neglogp0))
+        # prints out : Tensor("softmax_cross_entropy_with_logits_sg_1/Reshape_2:0", shape=(80,), dtype=float32)
+        print("@@@@@@@@@@@@ " + str(neglogp0))
         self.initial_state = None
+
+        # Returns set of actions (16 total) and values (16 total)
+        # TODO : what is being passed in as 'ob'
+        # line 96 to 99 in a2c:
+        #   self.step_model = step_model
+        #   self.step = step_model.step
+        #   self.value = step_model.value
+        #   self.initial_state = step_model.initial_state
+
+        # line 129 in a2c:
+        #    #For each step n (5), the model steps through each environment without 'learning' anything, adds rewards
+        #       for n in range(self.nsteps):
+        #           actions, values, states, _ = self.model.step(self.obs, self.states, self.dones)
 
         def step(ob, *_args, **_kwargs):
             # Runs the network with functions: a0, vf, neglop0, and state 'ob'
@@ -143,9 +159,10 @@ class CnnPolicy(object):
             a, v, neglogp = sess.run([a0, vf, neglogp0], {X:ob})
             print("STEP: a: " + str(a))
             print("STEP: v: " + str(v))
-            print("STEP: ngelopp: " + str(neglogp))
+            print("STEP: neglopp: " + str(neglogp))
             print()
             print()
+            print("STEP: ob: " + str(ob))
             return a, v, self.initial_state, neglogp
 
         def value(ob, *_args, **_kwargs):

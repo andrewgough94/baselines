@@ -37,24 +37,48 @@ class Model(object):
         # Pass each model a copy of 'sess'
         print("Constructing model... STEP_MODEL & TRAIN_MODEL: constructing step_model policy | " + str(policy))
         step_model = policy(sess, ob_space, ac_space, nenvs, 1, reuse=False)
+
+        # train_model takes in the mini-batch produced by 5 step_models, NOTE: reuse = true
         train_model = policy(sess, ob_space, ac_space, nenvs*nsteps, nsteps, reuse=True)
 
+        # this neglogpac is still somewhat unknown, looks like it does softmax over policy layer of training model
         neglogpac = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=train_model.pi, labels=A)
+
+        # policy gradient loss determined by advantage * neglogpac
         pg_loss = tf.reduce_mean(ADV * neglogpac)
+
+        # value function loss is mse(tf.squeeze(train_model.vf), R)
+        # ^ in english, mse(model value prediction, actual Reward)
         vf_loss = tf.reduce_mean(mse(tf.squeeze(train_model.vf), R))
+
+        # entropy of policy
         entropy = tf.reduce_mean(cat_entropy(train_model.pi))
+
+        # total loss calculation?
         loss = pg_loss - entropy*ent_coef + vf_loss * vf_coef
 
+
+        # params gets trainable variables from model (weights of network?)
         params = find_trainable_variables("model")
+
+        # computes gradients (change of weights, or direction of weights) using 'loss' and 'params' above
         grads = tf.gradients(loss, params)
         if max_grad_norm is not None:
             grads, grad_norm = tf.clip_by_global_norm(grads, max_grad_norm)
+
+        # TODO: how many gradients are computed here, should be 16
         grads = list(zip(grads, params))
         trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=alpha, epsilon=epsilon)
+        # RMSProp pushes back new gradients over weights
         _train = trainer.apply_gradients(grads)
 
         lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
 
+        # Trains the model,
+        # TODO: What is 'masks' input param
+        # TODO: How often does train_model (steps thru train_model) get run vs. step_model
+        #   A: I think it does a 'train_model' for each mini-batch, which is currently 5 steps
+        # Does a sess.run with train_model
         def train(obs, states, rewards, masks, actions, values):
             advs = rewards - values
             for step in range(len(obs)):
@@ -99,6 +123,7 @@ class Model(object):
 
 class Runner(object):
 
+    # Run is passed a model and nsteps default to 5, runs both models?
     def __init__(self, env, model, nsteps=5, gamma=0.99):
         self.env = env
         self.model = model
@@ -114,21 +139,28 @@ class Runner(object):
         self.dones = [False for _ in range(nenv)]
 
     # run() steps through 'nsteps' of each 'nenvs' environment, adds actions values
+    # 'nsteps' is 5 actions set above
     def run(self):
+        # initializes mini-batch arrays
         mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
         mb_states = self.states
 
-        # For each step n, the model steps through each environmentctions without 'learning' anything, adds rewards
+        # For each step n (5), the model steps through each environment without 'learning' anything, adds rewards
         for n in range(self.nsteps):
             actions, values, states, _ = self.model.step(self.obs, self.states, self.dones)
 
             #print("#######************###### ACTIONS PRINT: " + str(n))
             #print(str(actions))
             #print(str(values))
+
+            # Records actions and values predicted from the model.step() call above
             mb_obs.append(np.copy(self.obs))
             mb_actions.append(actions)
             mb_values.append(values)
             mb_dones.append(self.dones)
+
+            # Executes the actions predicted above
+            print("RUNNER: self.env: " + str(self.env))
             obs, rewards, dones, _ = self.env.step(actions)
             print("RUNNER: len(obs): " + str(len(obs)))
 
@@ -143,7 +175,8 @@ class Runner(object):
             self.obs = obs
             mb_rewards.append(rewards)
         mb_dones.append(self.dones)
-        #batch of steps to batch of rollouts
+
+        #batch of steps to batch of rollouts, aggregates all observations, rewards, actions, values, dones, swaps axis?
         mb_obs = np.asarray(mb_obs, dtype=np.uint8).swapaxes(1, 0).reshape(self.batch_ob_shape)
         mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
         mb_actions = np.asarray(mb_actions, dtype=np.int32).swapaxes(1, 0)
@@ -152,9 +185,11 @@ class Runner(object):
         mb_masks = mb_dones[:, :-1]
         mb_dones = mb_dones[:, 1:]
         last_values = self.model.value(self.obs, self.states, self.dones).tolist()
+
+
         #discount/bootstrap off value fn
 
-        # For each (reward, dones, value) tuple, add rewards to list, add dones to list,
+        # For each (reward, dones, value) tuple in enumerate(zip(..,..,..) : add rewards to list, add dones to list,
         for n, (rewards, dones, value) in enumerate(zip(mb_rewards, mb_dones, last_values)):
             rewards = rewards.tolist()
             dones = dones.tolist()
@@ -183,10 +218,14 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
     print('action space: ' + str(ac_space))
 
     # Initializes model with all arguments obtained from run_atari
+    #   Model DOES NOT GET the env stack object
     model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
         max_grad_norm=max_grad_norm, lr=lr, alpha=alpha, epsilon=epsilon, total_timesteps=total_timesteps, lrschedule=lrschedule)
 
-    # Intializes a runner using the above model, an environment, and nsteps to run
+    # Intializes a runner using the above model, an environment, and nsteps to run '5'
+    # env is the VectorFrameStack object created in run_atari, holds 16 environments
+    #   Runner DOES GET the env stack object
+    #   Runner DOES get the model, which lacks the env stack object
     runner = Runner(env, model, nsteps=nsteps, gamma=gamma)
 
 
@@ -196,6 +235,8 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
     nbatch = nenvs*nsteps
     tstart = time.time()
     i = 0
+
+    prevAvgReward = 0
 
     # Todo: Figure out how frequently this is: loop 1 to 137,501
     for update in range(1, total_timesteps//nbatch+1):
@@ -215,6 +256,7 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
         nseconds = time.time()-tstart
         fps = int((update*nbatch)/nseconds)
+
         if update % log_interval == 0 or update == 1:
             avgReward = 0
             rewardCount = 0
@@ -235,8 +277,19 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
             logger.record_tabular("avgReward", float(avgReward))
             logger.record_tabular("explained_variance", float(ev))
 
-
             logger.dump_tabular()
+
+            # If avg reward of this batch is greater than previous avg reward, save model
+            if avgReward > prevAvgReward:
+                logger.log("Saving model due to mean reward increase: {} -> {}".format(
+                    prevAvgReward, avgReward))
+
+                # Save model
+                model.save()
+
+                # Set prevAvgReward = avgReward
+                prevAvgReward = avgReward
+
 
 
     file.close()

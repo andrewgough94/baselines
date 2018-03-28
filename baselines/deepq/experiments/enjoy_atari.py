@@ -14,8 +14,8 @@ def main():
     print("Args env: " + args.env)
     env = gym.make(args.env)
     env = deepq.wrap_atari_dqn(env)
-    #act = deepq.load("/Users/agough/Documents/school/thesis/agents/atari/experiments/dqnExperiments/breakout/openai-2018-03-04-02-21-50-654051/model.pkl")
-    act = deepq.load("/Users/agough/Documents/school/thesis/agents/atari/experiments/dqnExperiments/breakout/openai-2018-03-04-13-18-53-851592/model.pkl")
+    act = deepq.load(args.dir)
+
 
     while True:
         obs, done = env.reset(), False
