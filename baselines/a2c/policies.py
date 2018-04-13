@@ -160,7 +160,9 @@ class CnnPolicy(object):
             a, v, neglogp = sess.run([a0, vf, neglogp0], {X:ob})
             print("STEP: a: " + str(a))
             #r = random.rand
-            a = nact - 2
+            ai = nact - 2
+            a = []
+            a.append(ai)
             #   print("STEP: v: " + str(v))
             #   print("STEP: neglogp: " + str(neglogp))
             #   print()
