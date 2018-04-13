@@ -157,7 +157,7 @@ class CnnPolicy(object):
             # Runs the network with functions: a0, vf, neglop0, and state 'ob'
             # All these variables are tensor objects
             a, v, neglogp = sess.run([a0, vf, neglogp0], {X:ob})
-            #   print("STEP: a: " + str(a))
+               print("STEP: a: " + str(a))
             #   print("STEP: v: " + str(v))
             #   print("STEP: neglogp: " + str(neglogp))
             #   print()

@@ -68,6 +68,8 @@ class Model(object):
         params = find_trainable_variables("model")
 
         # computes gradients (change of weights, or direction of weights) using 'loss' and 'params' above
+        # computes 'symbolic derivatives of sum 'loss' w.r.t 'params'
+        # from tflow docs: 'gradients() adds ops to the graph to output the derivs of 'params'
         grads = tf.gradients(loss, params)
         if max_grad_norm is not None:
             grads, grad_norm = tf.clip_by_global_norm(grads, max_grad_norm)
@@ -76,7 +78,7 @@ class Model(object):
         grads = list(zip(grads, params))
         # RMSProp optimizes learning rate , check thesis notes
         trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=alpha, epsilon=epsilon)
-        # RMSProp pushes back new gradients over weights
+        # RMSProp pushes back new gradients over trainable variables to change weights
         _train = trainer.apply_gradients(grads)
 
         lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
@@ -167,9 +169,9 @@ class Runner(object):
         for n in range(self.nsteps):
             actions, values, states, _ = self.model.step(self.obs, self.states, self.dones)
 
-            print("#######************###### ACTIONS PRINT: " + str(n))
-            print(str(actions))
-            print(str(values))
+            print("#######************###### a2c::::: run() iter: " + str(n))
+            print("action(s): " + str(actions))
+            print("values(s): " + str(values))
 
             # Records actions and values predicted from the model.step() call above
             mb_obs.append(np.copy(self.obs))
@@ -279,7 +281,7 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
             rewardCount = 0
             for reward in rewards:
                 # Prints 80 reward values? (5 training steps * 16 nenvs) = 80 reward values
-                print("a2c::::: learn(): " + str(reward))
+                print("a2c::::: learn() reward(s): " + str(reward))
                 avgReward += reward
                 rewardCount += 1
 
