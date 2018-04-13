@@ -108,7 +108,7 @@ class CnnPolicy(object):
         # print("$$$$$$$$$$$$$$$$$$$$$ " + str(ob_shape))
         nact = ac_space.n
         # prints out: !!!!!!!!!!!!!!!!!!!!! 4
-        print("!!!!!!!!!!!!!!!!!!!!! " + str(nact))
+        print("!!!!!!!!!!!!!!!!!!!!! num actions: " + str(nact))
 
         # X is the input for the conv network
         X = tf.placeholder(tf.uint8, ob_shape) #obs
@@ -157,12 +157,12 @@ class CnnPolicy(object):
             # Runs the network with functions: a0, vf, neglop0, and state 'ob'
             # All these variables are tensor objects
             a, v, neglogp = sess.run([a0, vf, neglogp0], {X:ob})
-            print("STEP: a: " + str(a))
-            print("STEP: v: " + str(v))
-            print("STEP: neglopp: " + str(neglogp))
-            print()
-            print()
-            print("STEP: ob: " + str(ob))
+            #   print("STEP: a: " + str(a))
+            #   print("STEP: v: " + str(v))
+            #   print("STEP: neglogp: " + str(neglogp))
+            #   print()
+            #   print()
+            #print("STEP: ob: " + str(ob))
             return a, v, self.initial_state, neglogp
 
         def value(ob, *_args, **_kwargs):

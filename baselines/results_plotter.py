@@ -46,7 +46,7 @@ def plot_curves(xy_list, xaxis, title):
     minx = 0
     for (i, (x, y)) in enumerate(xy_list):
         color = COLORS[i]
-        plt.scatter(x, y, s=2)
+        #plt.scatter(x, y, s=2)
         x, y_mean = window_func(x, y, EPISODES_WINDOW, np.mean) #So returns average of last EPISODE_WINDOW episodes
         plt.plot(x, y_mean, color=color)
     plt.xlim(minx, maxx)

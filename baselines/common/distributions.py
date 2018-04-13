@@ -129,6 +129,7 @@ class CategoricalPd(Pd):
         # Note: we can't use sparse_softmax_cross_entropy_with_logits because
         #       the implementation does not allow second-order derivatives...
         one_hot_actions = tf.one_hot(x, self.logits.get_shape().as_list()[-1])
+        print("Neglogp ...... one_hot_actions: " + str(one_hot_actions))
         return tf.nn.softmax_cross_entropy_with_logits(
             logits=self.logits,
             labels=one_hot_actions)
@@ -150,10 +151,12 @@ class CategoricalPd(Pd):
     def sample(self):
         u = tf.random_uniform(tf.shape(self.logits))
         print("Sample....... u: " + str(u))
-        print("Sample ...... logits shape: " + str(self.logits))
+        print("Sample ...... logits: " + str(self.logits))
         print("Sample ...... tf.log(-tf.log(u): " + str(tf.log(-tf.log(u))))
+        print("Sample ...... self.logits - tf.log(-tf.log(u)): " + str((self.logits - tf.log(-tf.log(u)))))
 
         rtn = tf.argmax(self.logits - tf.log(-tf.log(u)), axis=-1)
+        #rtn = tf.ran
         print("Sample1...... rtn: " + str(rtn))
         return rtn
     @classmethod

@@ -41,20 +41,26 @@ class Model(object):
         # train_model takes in the mini-batch produced by 5 step_models, NOTE: reuse = true
         train_model = policy(sess, ob_space, ac_space, nenvs*nsteps, nsteps, reuse=True)
 
-        # this neglogpac is still somewhat unknown, looks like it does softmax over policy layer of training model
+        # var init: this neglogpac is still somewhat unknown,
+        # looks like it does softmax over policy layer of training model
         neglogpac = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=train_model.pi, labels=A)
+        print("MAIN: neglocpac = sparse_softmax_cross_entropy_with_logits() inputs: ")
+        print("MAIN: train_model_pi: " + str(train_model.pi))
+        print("MAIN: labels: " + str(A))
 
-        # policy gradient loss determined by advantage * neglogpac
+        # var init: policy gradient loss determined by average of all advantage * neglogpac
         pg_loss = tf.reduce_mean(ADV * neglogpac)
 
         # value function loss is mse(tf.squeeze(train_model.vf), R)
         # ^ in english, mse(model value prediction, actual Reward)
+        # mse == means squared error, defined in a2c/utils.py
         vf_loss = tf.reduce_mean(mse(tf.squeeze(train_model.vf), R))
 
         # entropy of policy
         entropy = tf.reduce_mean(cat_entropy(train_model.pi))
 
         # total loss calculation?
+        # todo: is this the loss function definition??? check with a3c paper
         loss = pg_loss - entropy*ent_coef + vf_loss * vf_coef
 
 
@@ -68,11 +74,16 @@ class Model(object):
 
         # TODO: how many gradients are computed here, should be 16
         grads = list(zip(grads, params))
+        # RMSProp optimizes learning rate , check thesis notes
         trainer = tf.train.RMSPropOptimizer(learning_rate=LR, decay=alpha, epsilon=epsilon)
         # RMSProp pushes back new gradients over weights
         _train = trainer.apply_gradients(grads)
 
         lr = Scheduler(v=lr, nvalues=total_timesteps, schedule=lrschedule)
+
+
+        writer = tf.summary.FileWriter("/tmp/helloTensorBoard.txt")
+        writer.add_graph(sess.graph)
 
         # Trains the model,
         # TODO: What is 'masks' input param
@@ -100,9 +111,16 @@ class Model(object):
             return policy_loss, value_loss, policy_entropy
 
         def save(save_path):
+
+
+            path = logger.get_dir() + "/model.pkl"
+
+            print("Logger dir: " + logger.get_dir())
+            print("MODEL SAVED TO : " + str(path))
+
             ps = sess.run(params)
-            make_path(osp.dirname(save_path))
-            joblib.dump(ps, save_path)
+            #make_path(osp.dirname(save_path))
+            joblib.dump(ps, path)
 
         def load(load_path):
             loaded_params = joblib.load(load_path)
@@ -149,9 +167,9 @@ class Runner(object):
         for n in range(self.nsteps):
             actions, values, states, _ = self.model.step(self.obs, self.states, self.dones)
 
-            #print("#######************###### ACTIONS PRINT: " + str(n))
-            #print(str(actions))
-            #print(str(values))
+            print("#######************###### ACTIONS PRINT: " + str(n))
+            print(str(actions))
+            print(str(values))
 
             # Records actions and values predicted from the model.step() call above
             mb_obs.append(np.copy(self.obs))
@@ -160,11 +178,13 @@ class Runner(object):
             mb_dones.append(self.dones)
 
             # Executes the actions predicted above
-            print("RUNNER: self.env: " + str(self.env))
+            #   print("RUNNER: self.env: " + str(self.env))
             obs, rewards, dones, _ = self.env.step(actions)
-            print("RUNNER: len(obs): " + str(len(obs)))
+            print("a2c::::: run(): rewards: " + str(rewards))
 
-            print("RUNNER: len(rewards): " + str(len(rewards)))
+            #   print("RUNNER: len(obs): " + str(len(obs)))
+
+            #   print("RUNNER: len(rewards): " + str(len(rewards)))
 
 
             self.states = states
@@ -234,23 +254,20 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
 
     nbatch = nenvs*nsteps
     tstart = time.time()
-    i = 0
 
-    prevAvgReward = 0
+    maxAvgReward = 0
 
     # Todo: Figure out how frequently this is: loop 1 to 137,501
     for update in range(1, total_timesteps//nbatch+1):
-        print("__________ Control loop goes from 1 -> " + str(total_timesteps//nbatch+1))
+        #   print("__________ LEARN control loop:   " + str(update) + " ------>    " + str(total_timesteps//nbatch+1))
 
-        print("_____________________ Super main loop, hits run, hits train: " + str(i))
-        i += 1
         # runner.run(), steps model, returns observations, states, rewards, masks, actions, values for all agents?
         obs, states, rewards, masks, actions, values = runner.run()
         # 80 observations, 16 envs * 5 steps
-        print("LEARNING FROM: len(obs): " + str(len(obs)))
+        #   print("LEARNING FROM: len(obs): " + str(len(obs)))
         # Printing states: TypeError: object of type 'NoneType' has no len()
         #print("len(states): " + str(len(states)))
-        print("LEARNING FROM: len(rewards): " + str(len(rewards)))
+        #   print("LEARNING FROM: len(rewards): " + str(len(rewards)))
 
         # model.train(), trains model, takes all that above data, processes it through train_model
         policy_loss, value_loss, policy_entropy = model.train(obs, states, rewards, masks, actions, values)
@@ -262,7 +279,7 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
             rewardCount = 0
             for reward in rewards:
                 # Prints 80 reward values? (5 training steps * 16 nenvs) = 80 reward values
-                print(reward)
+                print("a2c::::: learn(): " + str(reward))
                 avgReward += reward
                 rewardCount += 1
 
@@ -280,15 +297,15 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
             logger.dump_tabular()
 
             # If avg reward of this batch is greater than previous avg reward, save model
-            if avgReward > prevAvgReward:
+            if avgReward > maxAvgReward:
                 logger.log("Saving model due to mean reward increase: {} -> {}".format(
-                    prevAvgReward, avgReward))
+                    maxAvgReward, avgReward))
 
                 # Save model
-                model.save()
+                model.save("modelName")
 
                 # Set prevAvgReward = avgReward
-                prevAvgReward = avgReward
+                maxAvgReward = avgReward
 
 
 

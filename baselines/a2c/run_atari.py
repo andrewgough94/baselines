@@ -26,6 +26,7 @@ def train(env_id, num_timesteps, seed, policy, lrschedule, num_env):
 
 def main():
     parser = atari_arg_parser()
+    # Below line is unnecessary because atari_arg_parser() handles env and steps to run for
     #parser.add_argument('--env', help='Atari Environment', default='BreakoutNoFrameskip-v0')
     parser.add_argument('--policy', help='Policy architecture', choices=['cnn', 'lstm', 'lnlstm'], default='cnn')
     parser.add_argument('--lrschedule', help='Learning rate schedule', choices=['constant', 'linear'], default='constant')
@@ -33,8 +34,9 @@ def main():
     logger.configure()
     print("xxxxxxxxxxxxxxxxxxxxxxxx            : " + args.env)
 
+    # train(...) initializes environments, and calls learn(...) with all arguments
     train(args.env, num_timesteps=args.num_timesteps, seed=args.seed,
-        policy=args.policy, lrschedule=args.lrschedule, num_env=16)
+        policy=args.policy, lrschedule=args.lrschedule, num_env=1)
 
 if __name__ == '__main__':
     main()
