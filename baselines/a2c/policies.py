@@ -159,10 +159,13 @@ class CnnPolicy(object):
             # All these variables are tensor objects
             a, v, neglogp = sess.run([a0, vf, neglogp0], {X:ob})
             print("STEP: a: " + str(a))
-            #r = random.rand
-            ai = nact - 2
+            
+            #ai = nact - 2
+
             a = []
-            a.append(ai)
+            for i in range(16):
+                a.append(rng.randrange(4))
+            print("STEP: new, random a: " + str(a))
             #   print("STEP: v: " + str(v))
             #   print("STEP: neglogp: " + str(neglogp))
             #   print()
