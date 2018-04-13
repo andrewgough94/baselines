@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import random as rng
 from baselines.a2c.utils import conv, fc, conv_to_fc, batch_to_seq, seq_to_batch, lstm, lnlstm
 from baselines.common.distributions import make_pdtype
 
@@ -157,7 +158,9 @@ class CnnPolicy(object):
             # Runs the network with functions: a0, vf, neglop0, and state 'ob'
             # All these variables are tensor objects
             a, v, neglogp = sess.run([a0, vf, neglogp0], {X:ob})
-               print("STEP: a: " + str(a))
+            print("STEP: a: " + str(a))
+            #r = random.rand
+            a = nact - 2
             #   print("STEP: v: " + str(v))
             #   print("STEP: neglogp: " + str(neglogp))
             #   print()
